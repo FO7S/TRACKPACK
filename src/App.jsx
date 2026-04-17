@@ -22,9 +22,7 @@ const STATUSES = [
 async function sendOTP(email) {
   const form = new FormData();
   form.append("email", email);
-  const res = await fetch(`${API}/auth/send-otp`, {
-    method: "POST", body: form, headers: NGROK_HEADERS
-  });
+  const res = await fetch(`${API}/auth/send-otp`, { method: "POST", body: form, headers: NGROK_HEADERS });
   if (!res.ok) throw new Error("Failed to send OTP");
 }
 
@@ -32,9 +30,7 @@ async function verifyOTP(email, code) {
   const form = new FormData();
   form.append("email", email);
   form.append("code", code);
-  const res = await fetch(`${API}/auth/verify-otp`, {
-    method: "POST", body: form, headers: NGROK_HEADERS
-  });
+  const res = await fetch(`${API}/auth/verify-otp`, { method: "POST", body: form, headers: NGROK_HEADERS });
   if (!res.ok) throw new Error("Invalid OTP");
 }
 
@@ -51,17 +47,13 @@ async function saveFingerprint(email, images) {
   form.append("email", email);
   form.append("front_img", toBlob(images.front), "front.jpg");
   form.append("back_img",  toBlob(images.back),  "back.jpg");
-  const res = await fetch(`${API}/fingerprint/save`, {
-    method: "POST", body: form, headers: NGROK_HEADERS
-  });
+  const res = await fetch(`${API}/fingerprint/save`, { method: "POST", body: form, headers: NGROK_HEADERS });
   if (!res.ok) throw new Error("Failed to save fingerprint");
   return res.json();
 }
 
 async function getBagStatus(email) {
-  const res = await fetch(`${API}/bag/status?email=${encodeURIComponent(email)}`, {
-    headers: NGROK_HEADERS
-  });
+  const res = await fetch(`${API}/bag/status?email=${encodeURIComponent(email)}`, { headers: NGROK_HEADERS });
   if (!res.ok) throw new Error("Not found");
   return res.json();
 }
@@ -72,13 +64,17 @@ async function getAllBags() {
   return res.json();
 }
 
+async function getMatchResults(email) {
+  const res = await fetch(`${API}/admin/match-results?email=${encodeURIComponent(email)}`, { headers: NGROK_HEADERS });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
 async function updateBagStatus(email, status) {
   const form = new FormData();
   form.append("email", email);
   form.append("status", status);
-  const res = await fetch(`${API}/admin/update-status`, {
-    method: "POST", body: form, headers: NGROK_HEADERS
-  });
+  const res = await fetch(`${API}/admin/update-status`, { method: "POST", body: form, headers: NGROK_HEADERS });
   if (!res.ok) throw new Error("Failed");
   return res.json();
 }
@@ -94,21 +90,15 @@ function LoginScreen({ onSubmit }) {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
   useEffect(() => { inputRef.current?.focus(); }, []);
-
   const handleChange = (e) => { setEmail(e.target.value.trim()); if (error) setError(''); };
-
   const handleSubmit = async () => {
     if (!emailRegex.test(email)) { setError('صيغة البريد الإلكتروني غير صحيحة'); return; }
     setLoading(true);
-    try {
-      await sendOTP(email);
-      onSubmit(email);
-    } catch { setError('فشل إرسال الرمز، حاول مجدداً'); }
+    try { await sendOTP(email); onSubmit(email); }
+    catch { setError('فشل إرسال الرمز، حاول مجدداً'); }
     finally { setLoading(false); }
   };
-
   const isValid = emailRegex.test(email);
-
   return (
     <div className="screen">
       <div className="card">
@@ -163,10 +153,8 @@ function OtpScreen({ email, onVerify, onBack }) {
     const code = otp.join('');
     if (code.length < 6) { setError('أدخل الرمز المكون من 6 أرقام'); return; }
     setLoading(true);
-    try {
-      await verifyOTP(email, code);
-      onVerify();
-    } catch {
+    try { await verifyOTP(email, code); onVerify(); }
+    catch {
       setError('رمز التحقق غير صحيح');
       setShaking(true);
       setOtp(['','','','','','']);
@@ -198,8 +186,7 @@ function OtpScreen({ email, onVerify, onBack }) {
         <div className="resend-row">
           {canResend
             ? <button className="resend-btn" onClick={async () => { await sendOTP(email); setCountdown(30); setCanResend(false); setOtp(['','','','','','']); }}>إعادة إرسال</button>
-            : <span className="resend-timer">إعادة الإرسال بعد <strong>{countdown}s</strong></span>
-          }
+            : <span className="resend-timer">إعادة الإرسال بعد <strong>{countdown}s</strong></span>}
         </div>
       </div>
     </div>
@@ -242,15 +229,9 @@ function TrackingScreen({ email, onBack }) {
   const [error, setError] = useState('');
 
   const fetchStatus = useCallback(async () => {
-    try {
-      const res = await getBagStatus(email);
-      setData(res);
-      setError('');
-    } catch {
-      setError('لم يتم العثور على بصمة شنطة لهذا البريد. يرجى تسجيل شنطتك أولاً.');
-    } finally {
-      setLoading(false);
-    }
+    try { const res = await getBagStatus(email); setData(res); setError(''); }
+    catch { setError('لم يتم العثور على بصمة شنطة لهذا البريد. يرجى تسجيل شنطتك أولاً.'); }
+    finally { setLoading(false); }
   }, [email]);
 
   useEffect(() => {
@@ -261,28 +242,10 @@ function TrackingScreen({ email, onBack }) {
 
   const currentIdx = data ? STATUSES.findIndex(s => s.key === data.status) : -1;
 
-  if (loading) return (
-    <div className="screen">
-      <div className="card">
-        <div className="loading-spinner">⏳</div>
-        <p className="subtitle">جاري البحث عن شنطتك...</p>
-      </div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="screen">
-      <div className="card">
-        <div className="brand-icon">😕</div>
-        <h1>غير موجود</h1>
-        <p className="subtitle">{error}</p>
-        <button className="btn-primary" onClick={onBack}>رجوع</button>
-      </div>
-    </div>
-  );
+  if (loading) return <div className="screen"><div className="card"><div className="loading-spinner">⏳</div><p className="subtitle">جاري البحث عن شنطتك...</p></div></div>;
+  if (error) return <div className="screen"><div className="card"><div className="brand-icon">😕</div><h1>غير موجود</h1><p className="subtitle">{error}</p><button className="btn-primary" onClick={onBack}>رجوع</button></div></div>;
 
   const current = STATUSES[currentIdx];
-
   return (
     <div className="screen tracking-screen">
       <div className="tracking-card">
@@ -296,17 +259,14 @@ function TrackingScreen({ email, onBack }) {
         </div>
         <div className="timeline">
           {STATUSES.map((s, idx) => {
-            const done   = idx < currentIdx;
-            const active = idx === currentIdx;
+            const done = idx < currentIdx; const active = idx === currentIdx;
             return (
               <div key={s.key} className={`timeline-item ${done ? 'done' : active ? 'active' : 'pending'}`}>
                 <div className="timeline-left">
                   <div className="timeline-dot" style={active ? {background: s.color, boxShadow: `0 0 0 4px ${s.color}33`} : done ? {background: s.color} : {}}>
                     {done ? '✓' : active ? s.icon : ''}
                   </div>
-                  {idx < STATUSES.length - 1 && (
-                    <div className="timeline-line" style={done ? {background: s.color} : {}} />
-                  )}
+                  {idx < STATUSES.length - 1 && <div className="timeline-line" style={done ? {background: s.color} : {}} />}
                 </div>
                 <div className="timeline-content">
                   <div className="timeline-label" style={active ? {color: s.color, fontWeight: 700} : {}}>{s.label}</div>
@@ -317,9 +277,7 @@ function TrackingScreen({ email, onBack }) {
           })}
         </div>
         <div className="tracking-footer">
-          <p className="tracking-updated">
-            آخر تحديث: {data?.status_updated_at ? new Date(data.status_updated_at).toLocaleTimeString('ar') : 'الآن'}
-          </p>
+          <p className="tracking-updated">آخر تحديث: {data?.status_updated_at ? new Date(data.status_updated_at).toLocaleTimeString('ar') : 'الآن'}</p>
           <button className="btn-refresh" onClick={fetchStatus}>🔄 تحديث</button>
         </div>
       </div>
@@ -331,8 +289,8 @@ function TrackingScreen({ email, onBack }) {
 // CAMERA SCREEN
 // ================================================================
 function CameraScreen({ onDone }) {
-  const videoRef   = useRef(null);
-  const canvasRef  = useRef(document.createElement('canvas'));
+  const videoRef  = useRef(null);
+  const canvasRef = useRef(document.createElement('canvas'));
   const [model, setModel]             = useState(null);
   const [message, setMessage]         = useState('جاري تهيئة النظام...');
   const [isDetected, setIsDetected]   = useState(false);
@@ -342,37 +300,20 @@ function CameraScreen({ onDone }) {
 
   const startCamera = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => videoRef.current.play();
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.onloadedmetadata = () => videoRef.current.play(); }
     } catch { setMessage('❌ خطأ في الكاميرا'); }
   }, []);
+  const stopCamera = useCallback(() => { videoRef.current?.srcObject?.getTracks().forEach(t => t.stop()); }, []);
 
-  const stopCamera = useCallback(() => {
-    videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
-  }, []);
-
-  useEffect(() => {
-    tf.ready().then(() => tf.setBackend('webgl')).then(() =>
-      cocossd.load({ base: 'mobilenet_v2' })
-    ).then(setModel);
-  }, []);
-
+  useEffect(() => { tf.ready().then(() => tf.setBackend('webgl')).then(() => cocossd.load({ base: 'mobilenet_v2' })).then(setModel); }, []);
   useEffect(() => { startCamera(); return stopCamera; }, [startCamera, stopCamera]);
 
   const checkLighting = useCallback((video) => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    canvas.width = 40; canvas.height = 40;
-    ctx.drawImage(video, 0, 0, 40, 40);
-    const { data } = ctx.getImageData(0, 0, 40, 40);
-    let brightness = 0;
-    for (let i = 0; i < data.length; i += 4)
-      brightness += (data[i] + data[i+1] + data[i+2]) / 3;
+    const canvas = canvasRef.current; const ctx = canvas.getContext('2d', { alpha: false });
+    canvas.width = 40; canvas.height = 40; ctx.drawImage(video, 0, 0, 40, 40);
+    const { data } = ctx.getImageData(0, 0, 40, 40); let brightness = 0;
+    for (let i = 0; i < data.length; i += 4) brightness += (data[i] + data[i+1] + data[i+2]) / 3;
     return brightness / 1600 > 45;
   }, []);
 
@@ -382,16 +323,15 @@ function CameraScreen({ onDone }) {
       if (model && videoRef.current?.readyState === 4) {
         if (time - lastTime > 800) {
           lastTime = time;
-          const lightOk = checkLighting(videoRef.current);
-          setIsLightGood(lightOk);
+          const lightOk = checkLighting(videoRef.current); setIsLightGood(lightOk);
           if (lightOk) {
             const preds = await model.detect(videoRef.current);
             const bag = preds.find(p => ['suitcase','bag','backpack','handbag'].includes(p.class));
             if (bag) {
               const [,,w] = bag.bbox; const vw = videoRef.current.videoWidth;
-              if (bag.score < 0.45)  { setMessage('🔄 حرك الكاميرا ببطء'); setIsDetected(false); }
+              if (bag.score < 0.45) { setMessage('🔄 حرك الكاميرا ببطء'); setIsDetected(false); }
               else if (w < vw * 0.3) { setMessage('🔍 اقترب من الحقيبة'); setIsDetected(false); }
-              else                    { setMessage('✅ وضعية مثالية! التقط الصورة'); setIsDetected(true); }
+              else { setMessage('✅ وضعية مثالية! التقط الصورة'); setIsDetected(true); }
             } else { setMessage('🔎 ابحث عن الحقيبة داخل الإطار'); setIsDetected(false); }
           } else { setMessage('⚠️ الإضاءة ضعيفة جداً'); setIsDetected(false); }
         }
@@ -404,19 +344,11 @@ function CameraScreen({ onDone }) {
 
   const captureImage = () => {
     const canvas = document.createElement('canvas');
-    canvas.width  = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight;
     canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    if (captureStep === 'front') {
-      setImages(prev => ({ ...prev, front: dataUrl }));
-      setCaptureStep('back');
-      setMessage('الآن صور الجهة الخلفية');
-      setIsDetected(false);
-    } else {
-      stopCamera();
-      onDone({ ...images, back: dataUrl });
-    }
+    if (captureStep === 'front') { setImages(prev => ({ ...prev, front: dataUrl })); setCaptureStep('back'); setMessage('الآن صور الجهة الخلفية'); setIsDetected(false); }
+    else { stopCamera(); onDone({ ...images, back: dataUrl }); }
   };
 
   return (
@@ -433,16 +365,12 @@ function CameraScreen({ onDone }) {
           <span className="corner bl"/><span className="corner br"/>
         </div>
         {captureStep === 'back' && images.front && (
-          <div className="preview-thumb">
-            <span>الأمام ✓</span>
-            <img src={images.front} alt="front preview" />
-          </div>
+          <div className="preview-thumb"><span>الأمام ✓</span><img src={images.front} alt="front preview" /></div>
         )}
       </div>
       <div className="camera-footer">
         <button className="btn-capture" disabled={!isDetected || !isLightGood} onClick={captureImage}>
-          <span className="capture-icon" />
-          {captureStep === 'front' ? 'تصوير الأمام' : 'تصوير الخلف'}
+          <span className="capture-icon" />{captureStep === 'front' ? 'تصوير الأمام' : 'تصوير الخلف'}
         </button>
       </div>
     </div>
@@ -458,19 +386,113 @@ function DoneScreen({ images, email, onTrack }) {
       <div className="card">
         <div className="success-icon">✅</div>
         <h1>تم بنجاح!</h1>
-        <p className="subtitle">
-          تم تسجيل بصمة شنطتك<br/>
-          سنرسل لك إشعاراً على <strong dir="ltr">{email}</strong> عند وصولها
-        </p>
+        <p className="subtitle">تم تسجيل بصمة شنطتك<br/>سنرسل لك إشعاراً على <strong dir="ltr">{email}</strong> عند وصولها</p>
         <div className="final-grid">
           <div className="final-img-wrap"><img src={images.front} alt="Front"/><span>الأمام</span></div>
           <div className="final-img-wrap"><img src={images.back}  alt="Back" /><span>الخلف</span></div>
         </div>
-        <button className="btn-primary" onClick={onTrack} style={{marginBottom:'12px'}}>
-          📡 تتبع شنطتي
-        </button>
+        <button className="btn-primary" onClick={onTrack} style={{marginBottom:'12px'}}>📡 تتبع شنطتي</button>
         <button className="btn-secondary" onClick={() => window.location.reload()}>إغلاق</button>
       </div>
+    </div>
+  );
+}
+
+// ================================================================
+// MATCH RESULTS PANEL
+// ================================================================
+function MatchResultsPanel({ email, onClose }) {
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getMatchResults(email).then(data => { setResults(data); setLoading(false); }).catch(() => setLoading(false));
+  }, [email]);
+
+  const ScoreBar = ({ label, value, color }) => (
+    <div style={{marginBottom: '10px'}}>
+      <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+        <span style={{fontSize:'12px', color:'#94a3b8', fontWeight:600}}>{label}</span>
+        <span style={{fontSize:'13px', color, fontWeight:700}}>{(value * 100).toFixed(1)}%</span>
+      </div>
+      <div style={{background:'#1e293b', borderRadius:'99px', height:'8px', overflow:'hidden'}}>
+        <div style={{width:`${value*100}%`, background:color, height:'100%', borderRadius:'99px', transition:'width 0.8s ease'}}/>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="match-panel">
+      <div className="match-panel-header">
+        <div>
+          <div style={{fontSize:'13px', color:'#64748b', marginBottom:'4px'}}>نتايج المودل</div>
+          <div style={{fontSize:'14px', color:'#94a3b8', direction:'ltr'}}>{email}</div>
+        </div>
+        <button className="match-close-btn" onClick={onClose}>✕</button>
+      </div>
+
+      {loading ? (
+        <div style={{textAlign:'center', padding:'40px', color:'#475569'}}>⏳ جاري التحميل...</div>
+      ) : results.length === 0 ? (
+        <div style={{textAlign:'center', padding:'40px', color:'#475569'}}>
+          <div style={{fontSize:'32px', marginBottom:'12px'}}>📭</div>
+          <div>لا يوجد ماتش بعد</div>
+          <div style={{fontSize:'12px', color:'#334155', marginTop:'8px'}}>شغّل الفيديو عشان يظهر هنا</div>
+        </div>
+      ) : results.map((r, i) => (
+        <div key={i} className="match-result-card">
+          {/* Header */}
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px'}}>
+            <div style={{fontSize:'12px', color:'#475569'}}>
+              {new Date(r.matched_at).toLocaleString('ar')}
+            </div>
+            <div style={{
+              background: r.final_score >= 0.74 ? '#22c55e22' : '#ef444422',
+              color: r.final_score >= 0.74 ? '#22c55e' : '#ef4444',
+              padding:'4px 12px', borderRadius:'99px', fontSize:'12px', fontWeight:700
+            }}>
+              {r.final_score >= 0.74 ? '✓ MATCH' : '✗ NO MATCH'} — {(r.final_score*100).toFixed(1)}%
+            </div>
+          </div>
+
+          {/* Scores */}
+          <div style={{marginBottom:'16px'}}>
+            <ScoreBar label="Final Score"   value={r.final_score}   color="#22c55e" />
+            <ScoreBar label="Global (DINOv2)" value={r.global_score}  color="#3b82f6" />
+            <ScoreBar label="Spatial Grid"  value={r.spatial_score} color="#8b5cf6" />
+            <ScoreBar label="Color (HSV)"   value={r.color_score}   color="#f59e0b" />
+          </div>
+
+          {/* Images */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+            {r.ref_front_image && (
+              <div style={{textAlign:'center'}}>
+                <img src={r.ref_front_image} alt="ref front" style={{width:'100%', borderRadius:'8px', border:'1px solid #334155'}}/>
+                <div style={{fontSize:'10px', color:'#475569', marginTop:'4px'}}>Ref Front</div>
+              </div>
+            )}
+            {r.crop_image && (
+              <div style={{textAlign:'center'}}>
+                <img src={r.crop_image} alt="crop" style={{width:'100%', borderRadius:'8px', border:'1px solid #334155'}}/>
+                <div style={{fontSize:'10px', color:'#475569', marginTop:'4px'}}>Detected</div>
+              </div>
+            )}
+            {r.crop_masked_image && (
+              <div style={{textAlign:'center'}}>
+                <img src={r.crop_masked_image} alt="crop masked" style={{width:'100%', borderRadius:'8px', border:'1px solid #334155'}}/>
+                <div style={{fontSize:'10px', color:'#475569', marginTop:'4px'}}>Segmented</div>
+              </div>
+            )}
+          </div>
+
+          {/* Thresholds */}
+          <div style={{background:'#0f172a', borderRadius:'8px', padding:'10px', fontSize:'11px', color:'#475569', fontFamily:'monospace'}}>
+            <div>Match threshold: <span style={{color:'#22c55e'}}>≥ 0.74</span></div>
+            <div>Veto global: <span style={{color:'#3b82f6'}}>≥ 0.68</span> | spatial: <span style={{color:'#8b5cf6'}}>≥ 0.60</span> | color: <span style={{color:'#f59e0b'}}>≥ 0.32</span></div>
+            <div>Best view: <span style={{color:'#94a3b8'}}>{r.best_view || '-'}</span></div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -481,10 +503,7 @@ function DoneScreen({ images, email, onTrack }) {
 function AdminLogin({ onLogin }) {
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
-  const handleLogin = () => {
-    if (pw === ADMIN_PASSWORD) onLogin();
-    else setError('كلمة المرور غير صحيحة');
-  };
+  const handleLogin = () => { if (pw === ADMIN_PASSWORD) onLogin(); else setError('كلمة المرور غير صحيحة'); };
   return (
     <div className="screen admin-login">
       <div className="card">
@@ -504,10 +523,11 @@ function AdminLogin({ onLogin }) {
 }
 
 function AdminDashboard() {
-  const [bags, setBags] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [bags, setBags]         = useState([]);
+  const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch]     = useState('');
+  const [openResults, setOpenResults] = useState(null); // email اللي فتحنا نتايجه
 
   const fetchBags = useCallback(async () => {
     try { const data = await getAllBags(); setBags(data); }
@@ -515,11 +535,7 @@ function AdminDashboard() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchBags();
-    const iv = setInterval(fetchBags, 15000);
-    return () => clearInterval(iv);
-  }, [fetchBags]);
+  useEffect(() => { fetchBags(); const iv = setInterval(fetchBags, 15000); return () => clearInterval(iv); }, [fetchBags]);
 
   const handleUpdate = async (email, status) => {
     setUpdating(email);
@@ -539,20 +555,32 @@ function AdminDashboard() {
         <input type="text" placeholder="ابحث بالإيميل..." value={search}
           onChange={e => setSearch(e.target.value)} dir="ltr" className="admin-search-input" />
       </div>
+
       {loading ? <div className="admin-loading">⏳ جاري التحميل...</div>
       : filtered.length === 0 ? <div className="admin-empty">لا يوجد مسافرون مسجّلون</div>
       : (
         <div className="admin-table">
           {filtered.map(bag => {
             const currentStatus = STATUSES.find(s => s.key === bag.status) || STATUSES[0];
+            const isOpen = openResults === bag.email;
             return (
               <div key={bag.email} className="admin-row">
                 <div className="admin-row-top">
                   <div className="admin-email" dir="ltr">{bag.email}</div>
-                  <div className="admin-current-status" style={{color: currentStatus.color}}>
-                    {currentStatus.icon} {currentStatus.label}
+                  <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                    <div className="admin-current-status" style={{color: currentStatus.color}}>
+                      {currentStatus.icon} {currentStatus.label}
+                    </div>
+                    <button
+                      className="results-btn"
+                      onClick={() => setOpenResults(isOpen ? null : bag.email)}
+                      style={{background: isOpen ? '#1B6FEB' : '#1e293b', color: isOpen ? 'white' : '#64748b'}}
+                    >
+                      {isOpen ? '▲ إخفاء النتايج' : '📊 النتايج'}
+                    </button>
                   </div>
                 </div>
+
                 <div className="admin-status-btns">
                   {STATUSES.map(s => (
                     <button key={s.key}
@@ -564,9 +592,16 @@ function AdminDashboard() {
                     </button>
                   ))}
                 </div>
+
                 <div className="admin-row-time">
                   آخر تحديث: {bag.status_updated_at ? new Date(bag.status_updated_at).toLocaleString('ar') : '-'}
                 </div>
+
+                {isOpen && (
+                  <div style={{marginTop:'16px', borderTop:'1px solid #1e293b', paddingTop:'16px'}}>
+                    <MatchResultsPanel email={bag.email} onClose={() => setOpenResults(null)} />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -600,8 +635,7 @@ export default function App() {
       {step === 'track'  && <TrackingScreen email={email} onBack={() => setStep('choice')} />}
       {step === 'camera' && (
         <CameraScreen onDone={async imgs => {
-          setImages(imgs);
-          setStep('done');
+          setImages(imgs); setStep('done');
           try { await saveFingerprint(email, imgs); } catch(e) { console.error(e); }
         }} />
       )}
