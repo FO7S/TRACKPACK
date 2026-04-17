@@ -9,19 +9,22 @@ import bagIcon from './assets/bag.svg';
 // ================================================================
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const ADMIN_PASSWORD = "trackpack2024";
+const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
 
 const STATUSES = [
-  { key: 'check-in',   label: 'Check-in',    icon: '🏷️',  color: '#6366f1' },
-  { key: 'loaded',     label: 'Loaded',      icon: '📦',  color: '#f59e0b' },
-  { key: 'in-flight',  label: 'In Flight',   icon: '✈️',  color: '#3b82f6' },
-  { key: 'arrived',    label: 'Arrived',     icon: '🛬',  color: '#8b5cf6' },
-  { key: 'on-carousel',label: 'On Carousel', icon: '🎠',  color: '#22c55e' },
+  { key: 'check-in',    label: 'Check-in',    icon: '🏷️', color: '#6366f1' },
+  { key: 'loaded',      label: 'Loaded',      icon: '📦', color: '#f59e0b' },
+  { key: 'in-flight',   label: 'In Flight',   icon: '✈️', color: '#3b82f6' },
+  { key: 'arrived',     label: 'Arrived',     icon: '🛬', color: '#8b5cf6' },
+  { key: 'on-carousel', label: 'On Carousel', icon: '🎠', color: '#22c55e' },
 ];
 
 async function sendOTP(email) {
   const form = new FormData();
   form.append("email", email);
-  const res = await fetch(`${API}/auth/send-otp`, { method: "POST", body: form });
+  const res = await fetch(`${API}/auth/send-otp`, {
+    method: "POST", body: form, headers: NGROK_HEADERS
+  });
   if (!res.ok) throw new Error("Failed to send OTP");
 }
 
@@ -29,7 +32,9 @@ async function verifyOTP(email, code) {
   const form = new FormData();
   form.append("email", email);
   form.append("code", code);
-  const res = await fetch(`${API}/auth/verify-otp`, { method: "POST", body: form });
+  const res = await fetch(`${API}/auth/verify-otp`, {
+    method: "POST", body: form, headers: NGROK_HEADERS
+  });
   if (!res.ok) throw new Error("Invalid OTP");
 }
 
@@ -46,19 +51,23 @@ async function saveFingerprint(email, images) {
   form.append("email", email);
   form.append("front_img", toBlob(images.front), "front.jpg");
   form.append("back_img",  toBlob(images.back),  "back.jpg");
-  const res = await fetch(`${API}/fingerprint/save`, { method: "POST", body: form });
+  const res = await fetch(`${API}/fingerprint/save`, {
+    method: "POST", body: form, headers: NGROK_HEADERS
+  });
   if (!res.ok) throw new Error("Failed to save fingerprint");
   return res.json();
 }
 
 async function getBagStatus(email) {
-  const res = await fetch(`${API}/bag/status?email=${encodeURIComponent(email)}`);
+  const res = await fetch(`${API}/bag/status?email=${encodeURIComponent(email)}`, {
+    headers: NGROK_HEADERS
+  });
   if (!res.ok) throw new Error("Not found");
   return res.json();
 }
 
 async function getAllBags() {
-  const res = await fetch(`${API}/admin/bags`);
+  const res = await fetch(`${API}/admin/bags`, { headers: NGROK_HEADERS });
   if (!res.ok) throw new Error("Failed");
   return res.json();
 }
@@ -67,7 +76,9 @@ async function updateBagStatus(email, status) {
   const form = new FormData();
   form.append("email", email);
   form.append("status", status);
-  const res = await fetch(`${API}/admin/update-status`, { method: "POST", body: form });
+  const res = await fetch(`${API}/admin/update-status`, {
+    method: "POST", body: form, headers: NGROK_HEADERS
+  });
   if (!res.ok) throw new Error("Failed");
   return res.json();
 }
@@ -196,7 +207,7 @@ function OtpScreen({ email, onVerify, onBack }) {
 }
 
 // ================================================================
-// CHOICE SCREEN — تسجيل أو تتبع
+// CHOICE SCREEN
 // ================================================================
 function ChoiceScreen({ email, onRegister, onTrack }) {
   return (
@@ -205,14 +216,12 @@ function ChoiceScreen({ email, onRegister, onTrack }) {
         <div className="brand-icon">🧳</div>
         <h1>مرحباً!</h1>
         <p className="subtitle" dir="ltr">{email}</p>
-
         <div className="choice-grid">
           <button className="choice-btn choice-register" onClick={onRegister}>
             <div className="choice-icon">📸</div>
             <div className="choice-title">تسجيل شنطة</div>
             <div className="choice-desc">صوّر شنطتك وسجّل بصمتها</div>
           </button>
-
           <button className="choice-btn choice-track" onClick={onTrack}>
             <div className="choice-icon">📡</div>
             <div className="choice-title">تتبع شنطتي</div>
@@ -278,7 +287,6 @@ function TrackingScreen({ email, onBack }) {
     <div className="screen tracking-screen">
       <div className="tracking-card">
         <button className="back-btn" style={{marginBottom:'16px'}} onClick={onBack}>← رجوع</button>
-
         <div className="tracking-header">
           <div className="tracking-status-icon" style={{background: current?.color + '22', border: `2px solid ${current?.color}`}}>
             <span>{current?.icon || '🧳'}</span>
@@ -286,12 +294,10 @@ function TrackingScreen({ email, onBack }) {
           <h1 className="tracking-title">{current?.label || 'Unknown'}</h1>
           <p className="tracking-email" dir="ltr">{email}</p>
         </div>
-
         <div className="timeline">
           {STATUSES.map((s, idx) => {
-            const done    = idx < currentIdx;
-            const active  = idx === currentIdx;
-            const pending = idx > currentIdx;
+            const done   = idx < currentIdx;
+            const active = idx === currentIdx;
             return (
               <div key={s.key} className={`timeline-item ${done ? 'done' : active ? 'active' : 'pending'}`}>
                 <div className="timeline-left">
@@ -303,21 +309,16 @@ function TrackingScreen({ email, onBack }) {
                   )}
                 </div>
                 <div className="timeline-content">
-                  <div className="timeline-label" style={active ? {color: s.color, fontWeight: 700} : {}}>
-                    {s.label}
-                  </div>
-                  {active && (
-                    <div className="timeline-badge" style={{background: s.color}}>الحالة الحالية</div>
-                  )}
+                  <div className="timeline-label" style={active ? {color: s.color, fontWeight: 700} : {}}>{s.label}</div>
+                  {active && <div className="timeline-badge" style={{background: s.color}}>الحالة الحالية</div>}
                 </div>
               </div>
             );
           })}
         </div>
-
         <div className="tracking-footer">
           <p className="tracking-updated">
-            آخر تحديث: {data?.updated_at ? new Date(data.updated_at).toLocaleTimeString('ar') : 'الآن'}
+            آخر تحديث: {data?.status_updated_at ? new Date(data.status_updated_at).toLocaleTimeString('ar') : 'الآن'}
           </p>
           <button className="btn-refresh" onClick={fetchStatus}>🔄 تحديث</button>
         </div>
@@ -475,17 +476,15 @@ function DoneScreen({ images, email, onTrack }) {
 }
 
 // ================================================================
-// ADMIN DASHBOARD
+// ADMIN
 // ================================================================
 function AdminLogin({ onLogin }) {
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
-
   const handleLogin = () => {
     if (pw === ADMIN_PASSWORD) onLogin();
     else setError('كلمة المرور غير صحيحة');
   };
-
   return (
     <div className="screen admin-login">
       <div className="card">
@@ -511,21 +510,21 @@ function AdminDashboard() {
   const [search, setSearch] = useState('');
 
   const fetchBags = useCallback(async () => {
-    try {
-      const data = await getAllBags();
-      setBags(data);
-    } catch { setBags([]); }
+    try { const data = await getAllBags(); setBags(data); }
+    catch { setBags([]); }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchBags(); const iv = setInterval(fetchBags, 15000); return () => clearInterval(iv); }, [fetchBags]);
+  useEffect(() => {
+    fetchBags();
+    const iv = setInterval(fetchBags, 15000);
+    return () => clearInterval(iv);
+  }, [fetchBags]);
 
   const handleUpdate = async (email, status) => {
     setUpdating(email);
-    try {
-      await updateBagStatus(email, status);
-      await fetchBags();
-    } finally { setUpdating(null); }
+    try { await updateBagStatus(email, status); await fetchBags(); }
+    finally { setUpdating(null); }
   };
 
   const filtered = bags.filter(b => b.email.toLowerCase().includes(search.toLowerCase()));
@@ -534,21 +533,15 @@ function AdminDashboard() {
     <div className="admin-dash">
       <div className="admin-header">
         <div className="admin-logo">🎛️ TrackPack Admin</div>
-        <div className="admin-stats">
-          <div className="stat-pill">{bags.length} مسافر</div>
-        </div>
+        <div className="stat-pill">{bags.length} مسافر</div>
       </div>
-
       <div className="admin-search">
         <input type="text" placeholder="ابحث بالإيميل..." value={search}
           onChange={e => setSearch(e.target.value)} dir="ltr" className="admin-search-input" />
       </div>
-
-      {loading ? (
-        <div className="admin-loading">⏳ جاري التحميل...</div>
-      ) : filtered.length === 0 ? (
-        <div className="admin-empty">لا يوجد مسافرون مسجّلون</div>
-      ) : (
+      {loading ? <div className="admin-loading">⏳ جاري التحميل...</div>
+      : filtered.length === 0 ? <div className="admin-empty">لا يوجد مسافرون مسجّلون</div>
+      : (
         <div className="admin-table">
           {filtered.map(bag => {
             const currentStatus = STATUSES.find(s => s.key === bag.status) || STATUSES[0];
@@ -562,13 +555,11 @@ function AdminDashboard() {
                 </div>
                 <div className="admin-status-btns">
                   {STATUSES.map(s => (
-                    <button
-                      key={s.key}
+                    <button key={s.key}
                       className={`status-btn ${bag.status === s.key ? 'active' : ''}`}
                       style={bag.status === s.key ? {background: s.color, borderColor: s.color} : {}}
                       onClick={() => handleUpdate(bag.email, s.key)}
-                      disabled={updating === bag.email}
-                    >
+                      disabled={updating === bag.email}>
                       {s.icon} {s.label}
                     </button>
                   ))}
@@ -599,7 +590,6 @@ export default function App() {
   const [email, setEmail]   = useState('');
   const [images, setImages] = useState(null);
 
-  // Admin route
   if (window.location.pathname === '/admin') return <AdminScreen />;
 
   return (
